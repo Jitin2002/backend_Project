@@ -55,7 +55,7 @@ const userSchema = new mongoose.Schema(
 userSchema.pre("save", async function (next){
     if(! this.isModified("password")) return next(); // modified nhi hua to return krr do
 
-    this.password = bcrypt.hash(this.password, 10) // rounds 
+    this.password = await bcrypt.hash(this.password, 10) // rounds 
     next()
 })
 
