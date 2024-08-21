@@ -15,7 +15,8 @@ const registerUser = asyncHandler( async (req,res)=>{
      // return user ,agar nhi hua to  return error 
 
     const {fullname, username, email,password} = req.body
-    console.log("email :",email);
+    // console.log("email :",email);
+    
     // ek ek chij ko check krr lo
     // if(fullname === ""){
     //     throw new ApiError(400,"fullname is required")
@@ -29,18 +30,27 @@ const registerUser = asyncHandler( async (req,res)=>{
     }
 
     // check already exist or not
-    const exitedUser = User.findOne({
+    const exitedUser = await User.findOne({
         $or: [{ email },{ username }] // multiple value check krni ha kr do object ke ander
 
     })
     if(exitedUser){
         throw new ApiError(409,"User already exited with username or email")
     }
+    // console.log(req.files);
+    
 
     // check for images and avatar
     // multer req me files ki access de deta ha 
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    // const coverImageLocalPath = req.files?.coverImage[0]?.path;
+
+    //  clasic way me check krr lete ha coverImage ha ya nhi
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) 
+        && req.files.coverImage.length > 0 ) {
+            coverImageLocalPath = req.files.coverImage[0].path        
+    }
 
     if(!avatarLocalPath){
         throw new ApiError(400,"Avatar file is required")
