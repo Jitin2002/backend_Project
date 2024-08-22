@@ -168,8 +168,8 @@ const logoutUser = asyncHandler( async(req,res) => {
     await User.findByIdAndUpdate( // id , update kya krna ha
         req.user._id,
         {
-            $set : {
-                refreshToken : undefined
+            $unset : {
+                refreshToken :1
             }
         },
         {
@@ -191,7 +191,7 @@ const logoutUser = asyncHandler( async(req,res) => {
 // end point for refresh access token 
 
 const refreshAccessToken = asyncHandler ( async(req,res) =>{
-    const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
     
     if(!incomingRefreshToken){
         throw new ApiError(401,"unauthorized request")
@@ -207,7 +207,7 @@ const refreshAccessToken = asyncHandler ( async(req,res) =>{
             throw new ApiError(401, "Invalid Refresh Token")
         }
         // match incooming token and user refresh token
-        if(incomingRefreshToken != user?.refreshToken){
+        if(incomingRefreshToken !== user?.refreshToken){
             throw new ApiError(401,"Refresh token is expired or used")
         }
     
@@ -225,9 +225,9 @@ const refreshAccessToken = asyncHandler ( async(req,res) =>{
         .json(
             new ApiRespones(
                 200,
-                {accessToken , refreshToken :newRefreshToken},
+                {accessToken , refreshToken : newRefreshToken},
                 "Access Token Refreshed"
-            )
+            ) 
         )
     } catch (error) {
         throw new ApiError(401,error?.message || "Invalid refresh token")
@@ -257,8 +257,8 @@ const getCurrentUser = asyncHandler(async(req,res)=>{
     .json(new ApiRespones(200,req.user,"current user fatched successfully"))
 })
 
-const updateAccountDetails = asyncHandler(async(res,req) =>{
-    const {fullname, email} = req.body
+const updateAccountDetails = asyncHandler(async(req,res) =>{
+    const {fullname , email} = req.body
     if(!fullname || !email){
         throw new ApiError(400,"All fields are required")
     }
@@ -266,7 +266,7 @@ const updateAccountDetails = asyncHandler(async(res,req) =>{
         req.user?._id,
         {
             $set : {
-                fullname,  // fullname : fullname 
+                fullname : fullname, // fullname : fullname 
                 email : email
             }
         },
@@ -278,8 +278,6 @@ const updateAccountDetails = asyncHandler(async(res,req) =>{
     return res
     .status(200)
     .json(new ApiRespones(200 , user,"Account details successfully updated"))
-
-
 })
 
 const updateUserAvatar = asyncHandler(async(req,res) =>{
