@@ -48,18 +48,7 @@ const registerUser = asyncHandler( async (req,res)=>{
         field?.trim() === "") 
     ){
         throw new ApiError(400,"All fields are required")
-    }
-
-    // check already exist or not
-    const exitedUser = await User.findOne({
-        $or: [{ email },{ username }] // multiple value check krni ha kr do object ke ander
-
-    })
-    if(exitedUser){
-        throw new ApiError(409,"User already exited with username or email")
-    }
-    // console.log(req.files);
-    
+    }     
 
     // check for images and avatar
     // multer req me files ki access de deta ha 
@@ -76,6 +65,18 @@ const registerUser = asyncHandler( async (req,res)=>{
     if(!avatarLocalPath){
         throw new ApiError(400,"Avatar file is required")
     }
+    // check already exist or not
+    const exitedUser = await User.findOne({
+        $or: [{ email },{ username }] // multiple value check krni ha kr do object ke ander
+
+    })
+    if(exitedUser){
+        if(avatarLocalPath) fs.unlinkSync(avatarLocalPath);
+        if(coverImageLocalPath) fs.unlinkSync(coverImageLocalPath);
+        throw new ApiError(409,"User already exited with username or email")
+    }
+    
+    // console.log(req.files);
     // now upload on cloudinary
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)

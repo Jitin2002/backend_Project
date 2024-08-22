@@ -26,7 +26,7 @@ const videoSchema = new Schema(
             required : true,
             
         },
-        time : {
+        duration : {
             type : Number, // cloudinary se hi mila ga  
             required : true
         },
