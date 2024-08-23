@@ -209,11 +209,15 @@ const deleteVideo = asyncHandler(async(req,res) =>{
         throw new ApiError(400,"Invalid videoId")
     }
     const video =  await Video.findById(videoId);
-
+    if (!video) {
+        throw new ApiError(404, "No video found");
+    }
     await destroyCloudImage(video.thumbnail)
 
     await destroyCloudVideo(video.videoFile)
-
+    await Like.deleteMany({
+        video: videoId
+    })
     const result = await Video.findByIdAndDelete(videoId)
 
     

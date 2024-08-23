@@ -72,6 +72,13 @@ const getUserTweets = asyncHandler(async(req,res)=>{
                 localField: "_id",
                 foreignField: "tweet",
                 as: "likes",
+                pipeline :[
+                    {
+                        $project :{
+                            likedBy :1
+                        }
+                    }
+                ]
             }
         },
         {
@@ -82,7 +89,24 @@ const getUserTweets = asyncHandler(async(req,res)=>{
                 likes: {
                     $size: "$likes",
 
+                },
+                isLiked: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$likeDetails.likedBy"]},
+                        then: true,
+                        else: false
+                    }
                 }
+            },
+            
+        },
+        {
+            $project: {
+                content: 1,
+                owner: 1,
+                likes: 1,
+                createdAt: 1,
+                isLiked: 1
             },
         },
 
