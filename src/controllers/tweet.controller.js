@@ -35,32 +35,29 @@ const createTweet = asyncHandler(async(req,res)=>{
 });
 
 const getUserTweets = asyncHandler(async(req,res)=>{
-    const {userId} = req.params;
-    if(!isValidObjectId(userId)){
-        throw new ApiError(401, "Invalid UserID");
+    const { userId } = req.params;
+
+    if (!isValidObjectId(userId)) {
+        throw new ApiError(400, "Invalid userId");
     }
-    const tweet = await Tweet.aggregate([
+
+    const tweets = await Tweet.aggregate([
         {
-            $match :{
-                owner : new mongoose.Types.ObjectId(userId)
-            }
-        },
-        { // sort by latest
-            $sort :{
-                createdAt :-1,
-            }
+            $match: {
+                owner: new mongoose.Types.ObjectId(userId),
+            },
         },
         {
             $lookup: {
                 from: "users",
                 localField: "owner",
                 foreignField: "_id",
-                as: "owner",
+                as: "ownerDetails",
                 pipeline: [
                     {
                         $project: {
+                            username: 1,
                             avatar: 1,
-                            fullname: 1,
                         },
                     },
                 ],
@@ -71,24 +68,23 @@ const getUserTweets = asyncHandler(async(req,res)=>{
                 from: "likes",
                 localField: "_id",
                 foreignField: "tweet",
-                as: "likes",
-                pipeline :[
+                as: "likeDetails",
+                pipeline: [
                     {
-                        $project :{
-                            likedBy :1
-                        }
-                    }
-                ]
-            }
+                        $project: {
+                            likedBy: 1,
+                        },
+                    },
+                ],
+            },
         },
         {
             $addFields: {
-                owner: {
-                    $first: "$owner",
+                likesCount: {
+                    $size: "$likeDetails",
                 },
-                likes: {
-                    $size: "$likes",
-
+                ownerDetails: {
+                    $first: "$ownerDetails",
                 },
                 isLiked: {
                     $cond: {
@@ -98,27 +94,26 @@ const getUserTweets = asyncHandler(async(req,res)=>{
                     }
                 }
             },
-            
+        },
+        {
+            $sort: {
+                createdAt: -1
+            }
         },
         {
             $project: {
                 content: 1,
-                owner: 1,
-                likes: 1,
+                ownerDetails: 1,
+                likesCount: 1,
                 createdAt: 1,
                 isLiked: 1
             },
         },
+    ]);
 
-    ])
-    if(!tweet.length){
-        // throw new ApiError(401, "Tweets not found.");
-        return res.status(404).json(new ApiResponse(404, [], "Tweets not found"));
-    }
     return res
-    .status(200)
-    .json(new ApiRespones(200,tweet,"Tweets fetched successfully !"))
-
+        .status(200)
+        .json(new ApiRespones(200, tweets, "Tweets fetched successfully"));
 })
 
 const updateTweet = asyncHandler(async(req,res)=>{

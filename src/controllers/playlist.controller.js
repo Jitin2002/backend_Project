@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Playlist } from "../models/playlists.models.js"
 import { ApiError } from "../utils/ApiError.js";
 import mongoose, { isValidObjectId } from "mongoose";
-import { ApiRespones } from "../utils/ApiResponse";
+import { ApiRespones } from "../utils/ApiResponse.js";
 import { Video } from "../models/video.models.js"
 
 const createPlaylist = asyncHandler(async(req,res)=>{
@@ -162,7 +162,7 @@ const getPlaylistById = asyncHandler(async (req,res)=>{
 });
 
 const addVideoToPlaylist = asyncHandler(async(req,res)=>{
-    const { playlistId, videoId } = req.params;
+    const { videoId,playlistId } = req.params;
 
     if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid playlistId and videoId");

@@ -4,7 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiRespones } from "../utils/ApiResponse.js";
 import { Video} from "../models/video.models.js"
-
+import { Like } from "../models/likes.models.js";
 const getVideoComments = asyncHandler(async(req,res)=>{
     const {videoId} = req.params
     const {page =1,limit =10} =req.query
@@ -91,30 +91,33 @@ const getVideoComments = asyncHandler(async(req,res)=>{
 })
 
 const addComment = asyncHandler(async(req,res)=>{
-    const {videoId} = req.params
-    const {content} = req.body
-
-    if(!isValidObjectId(videoId)){
-        throw new ApiError(401, "Invalid videoID")
+    const { videoId } = req.params;
+    const { content } = req.body;
+    if(!content){
+        throw new ApiError(400,"Content is required")
     }
+    
+    
+
     const video = await Video.findById(videoId);
 
     if (!video) {
         throw new ApiError(404, "Video not found");
     }
-    const result = await Comment.create(
-        {
-            content,
-            video : videoId,
-            owner : req.user?._id
-        }
-    )
-    if(!result) {
-        throw new ApiError(401, "Invalid videoID")
+
+    const comment = await Comment.create({
+        content,
+        video: videoId,
+        owner: req.user?._id
+    });
+
+    if (!comment) {
+        throw new ApiError(500, "Failed to add comment please try again");
     }
+
     return res
-    .status(200)
-    .json(new ApiRespones(201,result,"Successfully comment added"))
+        .status(201)
+        .json(new ApiRespones(201, comment, "Comment added successfully"));
 })
 
 const updateComment = asyncHandler(async(req,res) =>{

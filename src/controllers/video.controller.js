@@ -1,88 +1,100 @@
 import { ApiError } from "../utils/ApiError.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { uploadOnCloudinary ,deleteOnCloudinary} from "../utils/cloudinary.js"
 import { Video } from "../models/video.models.js"
 import { ApiRespones } from "../utils/ApiResponse.js"
 import { isValidObjectId } from "mongoose"
+import { Like } from "../models/likes.models.js"
+import { Comment } from "../models/comments.models.js"
 
 const getAllVideos = asyncHandler(async(req,res)=>{
-    const { 
-        page =1,
-        limit =10,
-        query = "",
-        userId = "",        
-        sortBy = "createdAt", 
-        sortType = 1,       
-    } = req.query;
-    
-    try {
-        const videoAggregate = await Video.aggregate([            
-            {
-                $match: {
-                    $or: [
-                        { title: { $regex: query, $options: "i" } }, //case-insensitive
-                        { description: { $regex: query, $options: "i" } }
-                    ]
-                }
-            },
-            {
-                $lookup :{
-                    from : "users",
-                    localField : "owner",
-                    foreignField : "_id",
-                    as : "owner",
-                    pipeline :[
-                        {
-                            $project :{
-                                fullname :1,
-                                avatar :1,
-                                username :1
-                            }
-                        }
-                    ]
-                }
-            },
-            {
-                $addFields :{
-                    owner : {
-                        $first :"$owner"
-                    }
-                }
-            },
-            {
-                $sort :{
-                    [sortBy ] : sortType 
+    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+    console.log(userId);
+    const pipeline = [];
+
+    // for using Full Text based search u need to create a search index in mongoDB atlas
+    // you can include field mapppings in search index eg.title, description, as well
+    // Field mappings specify which fields within your documents should be indexed for text search.
+    // this helps in seraching only in title, desc providing faster search results
+    // here the name of search index is 'search-videos'
+    if (query) {
+        pipeline.push({
+            $search: {
+                index: "search-videos",
+                text: {
+                    query: query,
+                    path: ["title", "description"] //search only on title, desc
                 }
             }
-        ]);
+        });
+    }
 
-        const options = { // Define the pagination behavior
-            page,
-            limit,
-            customLabels: { // Changes the default field names 
-                totalDocs: "totalVideos",
-                docs: "videos",
+    if (userId) {
+        if (!isValidObjectId(userId)) {
+            throw new ApiError(400, "Invalid userId");
+        }
+
+        pipeline.push({
+            $match: {
+                owner: new mongoose.Types.ObjectId(userId)
+            }
+        });
+    }
+
+    // fetch videos only that are set isPublished as true
+    pipeline.push({ $match: { isPublished: true } });
+
+    //sortBy can be views, createdAt, duration
+    //sortType can be ascending(-1) or descending(1)
+    if (sortBy && sortType) {
+        pipeline.push({
+            $sort: {
+                [sortBy]: sortType === "asc" ? 1 : -1
+            }
+        });
+    } else {
+        pipeline.push({ $sort: { createdAt: -1 } });
+    }
+
+    pipeline.push(
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "ownerDetails",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $unwind: "$ownerDetails"
+        }
+    )
+
+    const videoAggregate = Video.aggregate(pipeline);
+
+    const options = {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+    };
+
+
+    const result = await Video.aggregatePaginate(videoAggregate, options);
+
     
-            },
-            skip: (page - 1) * limit,
-            limit: parseInt(limit),
-        }
 
-        const result = await Video.aggregatePaginate(videoAggregate, options);
-
-        if (!result.videos.length) {
-            return res
-            .status(200)
-            .json(new ApiRespones(200, [], "No videos found"));
-        }
-
-        return res
+    return res
         .status(200)
         .json(new ApiRespones(200, result, "Videos fetched successfully"));
 
-    } catch (error) {
-        throw new ApiError(500, error.message ||"Internal server error in video aggregation")
-    }  
+    
     
 });
 
@@ -173,10 +185,9 @@ const updateVideo = asyncHandler(async (req, res) => {
     // Handle thumbnail update if a new file is provided
     if (req.file?.path) {
         // Delete the old thumbnail from Cloudinary
-        if (video.thumbnail) {
-            await destroyCloudImage(video.thumbnail);
+        if(video.thumbnail){
+            await deleteOnCloudinary(video.thumbnail.url)
         }
-
         // Upload the new thumbnail to Cloudinary
         const thumbnailUpload = await uploadOnCloudinary(req.file.path);
         if (!thumbnailUpload?.url) {
@@ -212,18 +223,21 @@ const deleteVideo = asyncHandler(async(req,res) =>{
     if (!video) {
         throw new ApiError(404, "No video found");
     }
-    await destroyCloudImage(video.thumbnail)
+    await deleteOnCloudinary(video.thumbnail)
 
-    await destroyCloudVideo(video.videoFile)
+    await deleteOnCloudinary(video.videoFile)
     await Like.deleteMany({
         video: videoId
     })
+    await Comment.deleteMany({
+        video: videoId,
+    })
     const result = await Video.findByIdAndDelete(videoId)
-
-    
-    if(!result.acknowledged){
-        throw new ApiError(400,"Error while deleting video from database")
+    if (!result) {
+        throw new ApiError(400, "Failed to delete the video please try again");
     }
+    
+    
     return res  
         .status(200)
         .json(new ApiRespones(200,{},"Video Deleted Successfully"))

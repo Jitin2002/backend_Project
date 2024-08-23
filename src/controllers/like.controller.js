@@ -5,7 +5,7 @@ import {Comment} from "../models/comments.models.js"
 import {Tweet} from "../models/tweet.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
-import ApiRespones from "../utils/ApiResponse.js";
+import {ApiRespones} from "../utils/ApiResponse.js";
 
 const toggleLike = async (Model,resourceID,userID)=>{
     if(!isValidObjectId(resourceID) || !isValidObjectId(userID)){
